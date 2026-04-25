@@ -6,7 +6,7 @@ async function runSsh(command: string) {
     "aticci-server",
     command
   ], {
-    timeout: 30000
+    timeout: 60000
   });
 
   return result.stdout;
@@ -39,31 +39,12 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
     }
   });
 
-  pi.registerTool({
-    name: "docker_list",
-    description: "Lista todos los contenedores Docker activos y detenidos.",
-    parameters: {
-      type: "object",
-      properties: {},
-      additionalProperties: false
-    },
-
-    async execute() {
-      const result = await runSsh(
-        'docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
-      );
-
-      return { content: [{ type: "text", text: result }] };
-    }
-  });
-
   pi.registerCommand("dockerlist", {
     description: "Mostrar todos los contenedores Docker del servidor",
     handler: async (_args, ctx) => {
       const result = await runSsh(
         'docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
       );
-
       ctx.ui.notify(result, "info");
     }
   });
@@ -74,7 +55,6 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
       const result = await runSsh(
         'docker ps -a --filter "status=exited" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
       );
-
       ctx.ui.notify(result || "No hay contenedores detenidos.", "info");
     }
   });
@@ -82,24 +62,34 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
   pi.registerCommand("ollamamodels", {
     description: "Mostrar modelos instalados en Ollama",
     handler: async (_args, ctx) => {
-      const result = await runSsh(
-        'docker exec ollama ollama list'
-      );
-
+      const result = await runSsh('docker exec ollama ollama list');
       ctx.ui.notify(result, "info");
     }
   });
 
   pi.registerCommand("ollamaps", {
-    description: "Mostrar modelos actualmente cargados en memoria en Ollama",
+    description: "Mostrar modelos cargados en memoria",
     handler: async (_args, ctx) => {
-      const result = await runSsh(
-        'docker exec ollama ollama ps'
-      );
-
+      const result = await runSsh('docker exec ollama ollama ps');
       ctx.ui.notify(result || "No hay modelos cargados actualmente.", "info");
     }
   });
+
+  pi.registerCommand("ollamatest", {
+  description: "Probar latencia real de llama3.1:8b en Ollama",
+  handler: async (_args, ctx) => {
+    const result = await runSsh(`
+    START=$(date +%s)
+    RESP=$(docker exec ollama ollama run llama3.1:8b "responde solo: ok")
+    END=$(date +%s)
+    echo "Respuesta: $RESP"
+    echo "Duración: $((END - START)) segundos"
+    docker exec ollama ollama ps
+`);
+
+    ctx.ui.notify(result, "info");
+  }
+});
 
   pi.registerCommand("serverstatus", {
     description: "Mostrar estado general del servidor",
@@ -115,7 +105,6 @@ df -h / &&
 echo "" &&
 docker ps --format "table {{.Names}}\t{{.Status}}"
 `);
-
       ctx.ui.notify(result, "info");
     }
   });
