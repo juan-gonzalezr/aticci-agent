@@ -79,6 +79,17 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
     }
   });
 
+  pi.registerCommand("ollamamodels", {
+    description: "Mostrar modelos instalados en Ollama",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(
+        'docker exec ollama ollama list'
+      );
+
+      ctx.ui.notify(result, "info");
+    }
+  });
+
   pi.registerCommand("serverstatus", {
     description: "Mostrar estado general del servidor",
     handler: async (_args, ctx) => {
