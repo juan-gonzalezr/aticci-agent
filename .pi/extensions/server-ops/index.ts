@@ -90,6 +90,17 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
     }
   });
 
+  pi.registerCommand("ollamaps", {
+    description: "Mostrar modelos actualmente cargados en memoria en Ollama",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(
+        'docker exec ollama ollama ps'
+      );
+
+      ctx.ui.notify(result || "No hay modelos cargados actualmente.", "info");
+    }
+  });
+
   pi.registerCommand("serverstatus", {
     description: "Mostrar estado general del servidor",
     handler: async (_args, ctx) => {
