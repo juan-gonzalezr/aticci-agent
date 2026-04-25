@@ -4,7 +4,7 @@ import { execa } from "execa";
 async function runSsh(command: string) {
   const result = await execa("ssh", [
   "-i",
-  "C:\\Users\\aticc\\.ssh\\aticci_agent_msi",
+  "C:\\Users\\aticc\\.ssh\\aticci_agent_book5",
   "-o",
   "BatchMode=yes",
   "aticci@100.64.0.1",
