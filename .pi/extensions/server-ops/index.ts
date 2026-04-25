@@ -3,15 +3,11 @@ import { execa } from "execa";
 
 async function runSsh(command: string) {
   const result = await execa("ssh", [
-  "-i",
-  "C:\\Users\\aticc\\.ssh\\aticci_agent_book5",
-  "-o",
-  "BatchMode=yes",
-  "aticci@100.64.0.1",
-  command
-], {
-  timeout: 30000
-});
+    "aticci-server",
+    command
+  ], {
+    timeout: 30000
+  });
 
   return result.stdout;
 }
@@ -32,7 +28,7 @@ export default function (pi: ExtensionAPI) {
         runSsh("whoami"),
         runSsh("uptime"),
         runSsh("df -h /"),
-        runSsh("docker ps --format 'table {{.Names}}\t{{.Status}}'")
+        runSsh("docker ps --format ""table {{.Names}}\t{{.Status}}""")
       ]);
 
       return {
