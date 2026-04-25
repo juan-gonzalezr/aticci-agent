@@ -23,37 +23,78 @@ export default function (pi: ExtensionAPI) {
     },
 
     async execute() {
-      const [hostname, user, uptime, disk, docker] = await Promise.all([
-        runSsh("hostname"),
-        runSsh("whoami"),
-        runSsh("uptime"),
-        runSsh("df -h /"),
-        runSsh("docker ps --format ""table {{.Names}}\t{{.Status}}""")
-      ]);
+      const result = await runSsh(`
+hostname &&
+echo "" &&
+whoami &&
+echo "" &&
+uptime &&
+echo "" &&
+df -h / &&
+echo "" &&
+docker ps --format "table {{.Names}}\t{{.Status}}"
+`);
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: `
-HOSTNAME:
-${hostname}
+      return { content: [{ type: "text", text: result }] };
+    }
+  });
 
-USER:
-${user}
+  pi.registerTool({
+    name: "docker_list",
+    description: "Lista todos los contenedores Docker activos y detenidos.",
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false
+    },
 
-UPTIME:
-${uptime}
+    async execute() {
+      const result = await runSsh(
+        'docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
+      );
 
-DISK:
-${disk}
+      return { content: [{ type: "text", text: result }] };
+    }
+  });
 
-DOCKER:
-${docker}
-`
-          }
-        ]
-      };
+  pi.registerCommand("dockerlist", {
+    description: "Mostrar todos los contenedores Docker del servidor",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(
+        'docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
+      );
+
+      ctx.ui.notify(result, "info");
+    }
+  });
+
+  pi.registerCommand("dockerdown", {
+    description: "Mostrar contenedores Docker detenidos",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(
+        'docker ps -a --filter "status=exited" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
+      );
+
+      ctx.ui.notify(result || "No hay contenedores detenidos.", "info");
+    }
+  });
+
+  pi.registerCommand("serverstatus", {
+    description: "Mostrar estado general del servidor",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(`
+hostname &&
+echo "" &&
+whoami &&
+echo "" &&
+uptime &&
+echo "" &&
+df -h / &&
+echo "" &&
+docker ps --format "table {{.Names}}\t{{.Status}}"
+`);
+
+      ctx.ui.notify(result, "info");
     }
   });
 }
