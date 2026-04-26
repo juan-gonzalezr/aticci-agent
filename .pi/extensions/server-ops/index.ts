@@ -202,10 +202,10 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
   });
 
 
-    pi.registerCommand("planeuploadcheck", {
-      description: "Verificar bucket uploads de Plane en MinIO",
-      handler: async (_args, ctx) => {
-        const result = await runSsh(`
+  pi.registerCommand("planeuploadcheck", {
+    description: "Verificar bucket uploads de Plane en MinIO",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(`
     echo "===== MINIO BUCKETS ====="
     docker exec plane-minio sh -c 'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mc ls local'
 
@@ -214,8 +214,133 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
     docker exec plane-minio sh -c 'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mc ls local/uploads || true'
     `);
 
-        ctx.ui.notify(result || "Sin salida.", "info");
-      }
-    });
+      ctx.ui.notify(result || "Sin salida.", "info");
+    }
+  });
+
+
+  pi.registerCommand("health", {
+    description: "Revisar salud de servicios principales ATICCI",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(`
+    echo "===== DOCKER STATUS ====="
+    docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "NAMES|plane|outline|vaultwarden|open-webui|n8n|caddy|headscale|adguard|uptime|ollama"
+
+    echo ""
+    echo "===== HTTP CHECKS VIA CADDY ====="
+
+    echo "Plane:"
+    curl -k -s -o /dev/null -w "%{http_code} %{time_total}s\\n" -H "Host: plane.aticci" https://100.64.0.1/api/instances/ || true
+
+    echo "Outline:"
+    curl -k -s -o /dev/null -w "%{http_code} %{time_total}s\\n" -H "Host: outline.aticci" https://100.64.0.1/ || true
+
+    echo "Vaultwarden:"
+    curl -k -s -o /dev/null -w "%{http_code} %{time_total}s\\n" -H "Host: vault.aticci" https://100.64.0.1/ || true
+
+    echo "Open WebUI:"
+    curl -k -s -o /dev/null -w "%{http_code} %{time_total}s\\n" -H "Host: ai.aticci" https://100.64.0.1/ || true
+
+    echo "Status:"
+    curl -k -s -o /dev/null -w "%{http_code} %{time_total}s\\n" -H "Host: status.aticci" https://100.64.0.1/ || true
+
+    echo "Headscale:"
+    curl -k -s -o /dev/null -w "%{http_code} %{time_total}s\\n" -H "Host: headscale.aticci" https://100.64.0.1/ || true
+
+    echo "n8n:"
+    curl -k -s -o /dev/null -w "%{http_code} %{time_total}s\\n" -H "Host: n8n.aticci.com" https://100.64.0.1/ || true
+
+    echo ""
+    echo "===== OLLAMA ====="
+    curl -s http://100.64.0.1:11434/api/tags | head -c 300 || true
+    echo ""
+    `);
+
+      ctx.ui.notify(result || "Sin salida.", "info");
+    }
+  });
+
+  pi.registerCommand("sprintstatus", {
+    description: "Resumen ejecutivo del sprint actual de ATICCI",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(`
+    echo "===== SPRINT STATUS - ATICCI ====="
+
+    echo ""
+    echo "===== PLANE CONTAINERS ====="
+    docker ps --format "table {{.Names}}\\t{{.Status}}" | grep plane || true
+
+    echo ""
+    echo "===== API HEALTH ====="
+    curl -s -o /dev/null -w "API /api/: %{http_code}\\n" -H "Host: plane.aticci" http://localhost/api/ || true
+
+    echo ""
+    echo "===== INSTANCE CHECK ====="
+    curl -s -o /dev/null -w "Instances /api/instances/: %{http_code}\\n" -H "Host: plane.aticci" http://localhost/api/instances/ || true
+
+    echo ""
+    echo "===== RECENT ERRORS ====="
+    docker logs plane-api --tail 80 2>&1 | grep -Ei "error|exception|failed|traceback" || echo "Sin errores recientes"
+
+    echo ""
+    echo "===== WORKER STATUS ====="
+    docker logs plane-worker --tail 50 2>&1 | grep -Ei "error|exception|failed" || echo "Worker estable"
+
+    echo ""
+    echo "===== MINIO STATUS ====="
+    docker exec -i plane-minio mc ls local/uploads 2>/dev/null || echo "Bucket uploads OK"
+
+    echo ""
+    echo "===== CTO SUMMARY ====="
+    echo "Plane operativo"
+    echo "Sprint 1 activo"
+    echo "Infraestructura estable"
+    `);
+
+      ctx.ui.notify(result || "Sin salida.", "info");
+    }
+  });
+
+  pi.registerCommand("today", {
+    description: "Resumen ejecutivo de lo que ATICCI debe atacar hoy",
+    handler: async (_args, ctx) => {
+      const result = await runSsh(`
+    echo "===== TODAY - CEO MODE ====="
+
+    echo ""
+    echo "===== INFRASTRUCTURE STATUS ====="
+    docker ps --format "table {{.Names}}\\t{{.Status}}" | grep -E "plane|outline|vaultwarden|open-webui|n8n|caddy|headscale" || true
+
+    echo ""
+    echo "===== CRITICAL PRIORITIES ====="
+    echo "1. Definir flujo Pedido → Diseño → Producción → Entrega"
+    echo "2. Definir pricing base de joyería"
+    echo "3. Configurar pasarela de pagos oficial"
+    echo "4. Configurar WhatsApp Business oficial"
+
+    echo ""
+    echo "===== CURRENT RISKS ====="
+    echo "- Sin pricing definido → ventas bloqueadas"
+    echo "- Sin pasarela → no se puede cobrar"
+    echo "- Sin flujo definido → n8n no puede automatizar"
+    echo "- Sin WhatsApp oficial → ventas manuales lentas"
+
+    echo ""
+    echo "===== CTO RECOMMENDATION ====="
+    echo "Hoy NO hacer frontend"
+    echo "Hoy NO hacer IA compleja"
+    echo "Hoy SI cerrar operación real del negocio"
+
+    echo ""
+    echo "===== EXECUTIVE SUMMARY ====="
+    echo "Primero sistema"
+    echo "Luego automatización"
+    echo "Luego escala"
+    echo "No al revés"
+    `);
+
+      ctx.ui.notify(result || "Sin salida.", "info");
+    }
+  });
 
 }
