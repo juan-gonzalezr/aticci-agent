@@ -1,6 +1,11 @@
 ﻿import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { execa } from "execa";
+import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, ".env") });
 async function runSsh(command: string) {
   const result = await execa("ssh", [
     "aticci-server",
@@ -343,4 +348,82 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
     }
   });
 
+
+  pi.registerCommand("todayreal", {
+  description: "Resumen real desde Plane API",
+  handler: async (_args, ctx) => {
+    const apiUrl = process.env.PLANE_API_URL;
+    const apiKey = process.env.PLANE_API_KEY;
+    const workspace = process.env.PLANE_WORKSPACE;
+    const projectId = process.env.PLANE_PROJECT_ID;
+
+    if (!apiUrl || !apiKey || !workspace || !projectId) {
+      ctx.ui.notify(
+        "Faltan variables de entorno: PLANE_API_URL, PLANE_API_KEY, PLANE_WORKSPACE o PLANE_PROJECT_ID",
+        "error"
+      );
+      return;
+    }
+
+    try {
+      process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+      const result = await fetch(
+        `${apiUrl}/workspaces/${workspace}/projects/${projectId}/work-items/`,
+        {
+          headers: {
+            "X-API-Key": apiKey,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      const text = await result.text();
+
+      if (!result.ok) {
+        ctx.ui.notify(`Plane API error ${result.status}:\n${text}`, "error");
+        return;
+      }
+
+      const data = JSON.parse(text);
+
+      if (!Array.isArray(data.results)) {
+        ctx.ui.notify("No se pudieron obtener work items de Plane", "error");
+        return;
+      }
+
+      const urgentItems = data.results
+        .filter((item: any) => item.priority === "urgent")
+        .map((item: any) => `• ATICC-${item.sequence_id}: ${item.name}`);
+
+      const highItems = data.results
+        .filter((item: any) => item.priority === "high")
+        .slice(0, 5)
+        .map((item: any) => `• ATICC-${item.sequence_id}: ${item.name}`);
+
+      const summary = `
+===== TODAY REAL - ATICCI =====
+
+Urgent:
+${urgentItems.length ? urgentItems.join("\n") : "Sin tareas urgentes"}
+
+High:
+${highItems.length ? highItems.join("\n") : "Sin tareas high"}
+
+Recomendación:
+Atacar primero flujo operativo, pricing y pagos.
+
+CEO Mode:
+Sistema → Automatización → Escala
+`;
+
+      ctx.ui.notify(summary, "info");
+    } catch (error: any) {
+      ctx.ui.notify(
+        `fetch failed:\n${error?.message || error}\n\nCausa probable: certificado local / DNS interno.`,
+        "error"
+      );
+    }
+  }
+});
 }
