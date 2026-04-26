@@ -201,4 +201,21 @@ docker ps --format "table {{.Names}}\t{{.Status}}"
     }
   });
 
+
+    pi.registerCommand("planeuploadcheck", {
+      description: "Verificar bucket uploads de Plane en MinIO",
+      handler: async (_args, ctx) => {
+        const result = await runSsh(`
+    echo "===== MINIO BUCKETS ====="
+    docker exec plane-minio sh -c 'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mc ls local'
+
+    echo ""
+    echo "===== UPLOADS BUCKET ====="
+    docker exec plane-minio sh -c 'mc alias set local http://127.0.0.1:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null && mc ls local/uploads || true'
+    `);
+
+        ctx.ui.notify(result || "Sin salida.", "info");
+      }
+    });
+
 }
